@@ -614,6 +614,7 @@ Có 2 loại segment :
      *.bss
 
 <img width="764" height="438" alt="image" src="https://github.com/user-attachments/assets/1ae72113-c484-4226-aa35-5bb892d80a54" />
+
 ## Symbols
 **Symbol (Ký hiệu)** là tên định danh (nhãn) đại diện cho một vùng mã lệnh hoặc dữ liệu trong chương trình — chẳng hạn như tên của một **hàm** (`main`, `printf`) hoặc một **biến toàn cục**. Nó giúp ánh xạ một cái tên dễ đọc tới một địa chỉ bộ nhớ cụ thể.
 32-bit struct:
