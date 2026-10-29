@@ -1247,3 +1247,57 @@ Tóm tắt:
     Như đã giải thích trước đó, chúng được nạp vào không gian bộ nhớ của tiến trình, và linker sẽ đảm nhận công việc liên kết động.
 
 ## Common objects and functions ##
+
+frame_dummy: Hàm này nằm trong section .init. Nó được định nghĩa dưới dạng void frame_dummy ( void ) và mục đích duy nhất trong sự tồn tại của nó là gọi hàm __register_frame_info_bases (hàm có nhận các đối số).
+
+_start: Đây là vị trí mà trường e_entry trỏ tới, và là đoạn code đầu tiên được thực thi khi chương trình chạy.
+
+_init: Dynamic loader sẽ thực thi hàm (INIT) trước khi trao quyền điều khiển cho hàm _start, và thực thi hàm (FINI) ngay trước khi trao quyền điều khiển trở lại cho kernel hệ điều hành. Hàm _init là hàm mặc định được sử dụng cho thẻ (INIT). Nó gọi một số hàm như __gmon_start__, frame_dummy, __do_global_ctors_aux.
+
+_fini: Dynamic loader sẽ thực thi hàm (FINI) ngay trước khi trao quyền điều khiển trở lại cho kernel hệ điều hành.
+
+.init: Đoạn code sẽ được thực thi khi chương trình bắt đầu khởi chạy.
+
+.fini: Đoạn code sẽ được thực thi khi chương trình kết thúc.
+
+.init_array: Mảng chứa các con trỏ hàm được dùng làm constructor (hàm khởi tạo cấp chương trình).
+
+.fini_array: Mảng chứa các con trỏ hàm được dùng làm destructor (hàm hủy cấp chương trình).
+
+__libc_start_main: Hàm của thư viện libc đảm nhận việc thiết lập môi trường thực thi và gọi hàm main().
+
+deregister_tm_clones: Bộ nhớ giao dịch (Transactional Memory) được thiết kế nhằm giúp việc lập trình đa luồng trở nên đơn giản hơn, là một giải pháp thay thế cho cơ chế đồng bộ hóa bằng khóa (lock-based synchronization). Các hàm này lần lượt thực hiện việc dọn dẹp (tear down) và thiết lập (setup) một bảng được sử dụng bởi thư viện hỗ trợ các chức năng này (libitm).
+
+register_tm_clones: Bộ nhớ giao dịch (Transactional Memory) được thiết kế nhằm giúp việc lập trình đa luồng trở nên đơn giản hơn, là một giải pháp thay thế cho cơ chế đồng bộ hóa bằng khóa (lock-based synchronization). Các hàm này lần lượt thực hiện việc dọn dẹp (tear down) và thiết lập (setup) một bảng được sử dụng bởi thư viện hỗ trợ các chức năng này (libitm).
+
+__register_frame_info_bases: (Hàm đăng ký thông tin unwind frame phục vụ xử lý ngoại lệ và call stack).
+
+__stack_chk_fail: Hàm bảo vệ chống tấn công tràn ngăn xếp (Stack Smashing Protector - cơ chế Canary).
+
+__do_global_dtors_aux: Thực thi tất cả các destructor toàn cục khi thoát chương trình trên các hệ thống không có sẵn .fini_array.
+
+__do_global_dtors_aux_fini_array_entry và __init_array_end: Đánh dấu điểm kết thúc và điểm bắt đầu của section .fini_array (nơi chứa con trỏ tới tất cả các hàm hủy / finalizer cấp chương trình).
+
+__frame_dummy_init_array_entry và __init_array_start: Đánh dấu điểm kết thúc và điểm bắt đầu của section .init_array (nơi chứa con trỏ tới tất cả các hàm khởi tạo / initializer cấp chương trình).
+
+__libc_csu_init: Thực thi mọi hàm khởi tạo cấp chương trình (tương tự như constructor cho toàn bộ chương trình của bạn).
+
+__libc_csu_fini: Thực thi mọi hàm hủy cấp chương trình (tương tự như destructor cho toàn bộ chương trình của bạn).
+
+main: Đối với các chương trình liên kết với libc, đây là hàm mặc định được gọi bởi __libc_start_main, và là nơi mã nguồn tùy chỉnh đầu tiên của người dùng bắt đầu chạy.
+
+.eh_frame: Chứa các tính năng gỡ lỗi dựa trên chuẩn DWARF, chẳng hạn như gỡ cuộn ngăn xếp (stack unwinding).
+
+Tóm tắt luồng thực thi (Summary):
+
+_start gọi hàm __libc_start_main của thư viện libc;
+
+__libc_start_main gọi __libc_csu_init của tệp thực thi (phần liên kết tĩnh của libc);
+
+__libc_csu_init gọi các constructor của tệp thực thi (và các thủ tục khởi tạo khác);
+
+__libc_start_main gọi hàm main() của tệp thực thi;
+
+__libc_start_main gọi hàm exit() của tệp thực thi.
+
+<img width="741" height="635" alt="image" src="https://github.com/user-attachments/assets/787c72af-ecf2-499d-9cce-16014d274b06" />
