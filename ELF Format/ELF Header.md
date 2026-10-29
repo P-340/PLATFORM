@@ -730,3 +730,59 @@ st_type defines:
 
 <img width="500" height="562" alt="image" src="https://github.com/user-attachments/assets/1e0b99f2-657a-4ae7-aa16-319d985dfd15" />
 
+<img width="736" height="581" alt="image" src="https://github.com/user-attachments/assets/9cbb22dd-cc7d-4622-8b25-efaab6a6ed2e" />
+
+Dynamic linking (Liên kết động) là quá trình chúng ta phân giải các hàm từ các thư viện bên ngoài (các shared object / tệp .so).
+Theo mặc định, cơ chế lazy binding (liên kết lười / liên kết khi cần) được sử dụng: hàm chỉ được phân giải tại thời điểm nó được gọi lần đầu tiên; ở các lần gọi tiếp theo, địa chỉ của hàm sẽ được lưu vào bảng GOT (Global Offset Table). Khi đó, mục PLT tương ứng chỉ việc nhảy thẳng đến địa chỉ đã được lưu trong mục GOT của hàm đó.
+
+Chúng ta có thể tắt lazy binding bằng cách sử dụng biến môi trường LD_BIND_NOW, hoặc dùng cơ chế RELRO (Relocation Read-Only).
+Khi một hàm bên ngoài được gọi từ code, thay vì gọi trực tiếp hàm thực sự, mục PLT (Procedure Linkage Table) của hàm đó sẽ được gọi trước.
+PLT là đoạn mã sử dụng GOT để nhảy và nhờ dynamic linker phân giải địa chỉ của các hàm bên ngoài.
+Cần có một mục relocation (tái định vị) cho fgets để linker phân giải; do địa chỉ sau khi phân giải phải được ghi vào một vị trí cụ thể, giá trị offset trong bảng relocation sẽ trỏ tới mục GOT dành riêng cho fgets(). Sau khi hàm được phân giải xong, linker sẽ ghi địa chỉ thực của hàm vào mục GOT đó.
+
+    Offset       Info        Type         SymValue     SymName
+    ...
+    0804a000   00000107  R_386_JUMP_SLOT   00000000    fgets
+    ...
+0x0804a000 chính là mục GOT dành cho fgets().
+
+Khi một hàm như fgets được gọi lần đầu tiên:
+
+    objdump -d ./prog
+    ...
+    8048481: e8 da fe ff ff    call 0x8048360 <fgets@plt>
+    ...
+
+fgets@plt được gọi.
+Mục PLT tương ứng:
+
+    08048360 <fgets@plt>:
+    /* Một lệnh nhảy vào GOT */
+    8048360:  ff 25 00 a0 04 08   jmp *0x804a000
+    8048366:  68 00 00 00 00      push $0x0
+    804836b:  e9 e0 ff ff ff      jmp  0x8048350 <_init+0x34>
+    ...
+Ở lệnh đầu tiên, nó thực hiện một bước nhảy gián tiếp (indirect jump) tới địa chỉ đang được chứa trong mục GOT của fgets.
+Tại thời điểm này, địa chỉ được lưu trong GOT chính là địa chỉ của lệnh tiếp theo ngay sau lệnh nhảy đó (0x8048366), vì vậy lệnh push $0x0 được thực thi. Lệnh này đẩy chỉ số (index/offset) trong GOT của fgets lên stack (lưu ý rằng 3 mục đầu tiên của GOT đã được hệ thống dành riêng, nên đây thực chất là mục thứ 4).
+
+Các mục GOT dành riêng (Reserved GOT entries):
+
+GOT[0]: Chứa địa chỉ trỏ tới segment .dynamic của file thực thi, được dynamic linker dùng để trích xuất các thông tin liên quan đến liên kết động.
+
+GOT[1]: Chứa địa chỉ của cấu trúc dữ liệu link_map, được dynamic linker sử dụng để phân giải các symbol.
+
+GOT[2]: Chứa địa chỉ trỏ tới hàm _dl_runtime_resolve() của dynamic linker — hàm thực hiện việc tìm và phân giải địa chỉ thực tế của hàm trong shared library.
+
+Lệnh cuối cùng trong đoạn mã PLT stub của fgets() là jmp 0x8048350. Địa chỉ này trỏ tới mục PLT đầu tiên của file thực thi, thường được gọi là PLT-0:
+
+    8048350: ff 35 f8 9f 04 08      pushl  0x8049ff8
+    8048356: ff 25 fc 9f 04 08      jmp   *0x8049ffc
+    804835c: 00 00                  add    %al,(%eax)
+
+Lệnh pushl đầu tiên đẩy địa chỉ của mục GOT thứ hai (GOT[1]) lên stack — như đã đề cập ở trên, mục này chứa địa chỉ của cấu trúc link_map.
+Lệnh jmp *0x8049ffc thực hiện bước nhảy gián tiếp vào mục GOT thứ ba (GOT[2]), nơi chứa địa chỉ hàm _dl_runtime_resolve() của dynamic linker. Nhờ đó, quyền điều khiển được chuyển cho dynamic linker để phân giải địa chỉ thực của fgets(). Khi fgets() đã được phân giải xong, tất cả các lần gọi sau tới mục PLT của fgets() sẽ nhảy thẳng tới code thực của hàm fgets(), thay vì quay ngược lại PLT để lặp lại tiến trình liên kết lười nữa.
+Static Linking:
+<img width="441" height="257" alt="image" src="https://github.com/user-attachments/assets/dcae8fd5-7322-4247-8cb6-997fc764d910" />
+
+Dynamic Linking:
+<img width="506" height="257" alt="image" src="https://github.com/user-attachments/assets/f8de9084-7e90-4b36-b39c-704e9e477340" />
