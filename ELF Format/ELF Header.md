@@ -785,4 +785,87 @@ Static Linking:
 <img width="441" height="257" alt="image" src="https://github.com/user-attachments/assets/dcae8fd5-7322-4247-8cb6-997fc764d910" />
 
 Dynamic Linking:
+
 <img width="506" height="257" alt="image" src="https://github.com/user-attachments/assets/f8de9084-7e90-4b36-b39c-704e9e477340" />
+
+## Dynamic ##
+32-bit struct:
+```c
+typedef struct
+{
+  Elf32_Sword	d_tag;			/* Dynamic entry type */
+  union
+    {
+      Elf32_Word d_val;			/* Integer value */
+      Elf32_Addr d_ptr;			/* Address value */
+    } d_un;
+} Elf32_Dyn;
+```
+
+64-bit struct:
+```c
+typedef struct
+{
+  Elf64_Sxword	d_tag;			/* Dynamic entry type */
+  union
+    {
+      Elf64_Xword d_val;		/* Integer value */
+      Elf64_Addr d_ptr;			/* Address value */
+    } d_un;
+} Elf64_Dyn;
+```
+Một số giá trị:
+
+    d_tag: Chứa một thẻ định danh (tag).
+
+         DT_NEEDED: Chứa khoảng lệch (offset) trong bảng chuỗi trỏ tới tên của một shared library cần thiết (thư viện phụ thuộc).
+
+         DT_SYMTAB: Chứa địa chỉ của bảng dynamic symbol (bảng ký hiệu động), thường được biết đến qua tên section của nó là .dynsym.
+
+         DT_HASH: Chứa địa chỉ của bảng băm ký hiệu (symbol hash table), thường được biết đến qua tên section là .hash (hoặc đôi khi có tên là .gnu.hash).
+
+         DT_STRTAB: Chứa địa chỉ của bảng chuỗi ký hiệu (symbol string table), thường được biết đến qua tên section là .dynstr.
+
+         DT_PLTGOT: Chứa địa chỉ của bảng GOT (Global Offset Table).
+
+    d_val: Chứa một giá trị số nguyên với nhiều ý nghĩa khác nhau; chẳng hạn, một trường hợp là biểu thị kích thước của một mục relocation (tái định vị).
+
+    d_ptr: Chứa một địa chỉ bộ nhớ ảo trỏ tới các vị trí khác nhau mà linker cần; một ví dụ điển hình là địa chỉ trỏ tới bảng symbol đối với thẻ d_tag mang giá trị DT_SYMTAB.
+
+---- Định nghĩa kiểu dữ liệu (type defines) ----
+
+Các giá trị d_tag thông dụng (Constants Define):
+```c
+#define DT_NULL         0       /* Đánh dấu kết thúc mảng _DYNAMIC */
+#define DT_NEEDED       1       /* Offset chuỗi tên thư viện phụ thuộc (trong DT_STRTAB) */
+#define DT_PLTRELSZ     2       /* Kích thước (bytes) của các mục relocation liên quan đến PLT */
+#define DT_PLTGOT       3       /* Địa chỉ của PLT và/hoặc GOT */
+#define DT_HASH         4       /* Địa chỉ của bảng băm symbol (.hash) */
+#define DT_STRTAB       5       /* Địa chỉ của bảng chuỗi ký tự (.dynstr) */
+#define DT_SYMTAB       6       /* Địa chỉ của bảng dynamic symbol (.dynsym) */
+#define DT_RELA         7       /* Địa chỉ của bảng relocation với addend (.rela.dyn) */
+#define DT_RELASZ       8       /* Tổng kích thước bảng DT_RELA */
+#define DT_RELAENT      9       /* Kích thước của một mục DT_RELA */
+#define DT_STRSZ        10      /* Tổng kích thước của DT_STRTAB */
+#define DT_SYMENT       11      /* Kích thước của một mục DT_SYMTAB */
+#define DT_INIT         12      /* Địa chỉ của hàm khởi tạo (_init) */
+#define DT_FINI         13      /* Địa chỉ của hàm kết thúc (_fini) */
+#define DT_SONAME       14      /* Offset chuỗi tên của shared object */
+#define DT_RPATH        15      /* Offset chuỗi đường dẫn tìm kiếm thư viện (đã cũ, thay bằng DT_RUNPATH) */
+#define DT_SYMBOLIC     16      /* Báo hiệu linker ưu tiên symbol nội bộ */
+#define DT_REL          17      /* Địa chỉ của bảng relocation không có addend (.rel.dyn) */
+#define DT_RELSZ        18      /* Tổng kích thước bảng DT_REL */
+#define DT_RELENT       19      /* Kích thước của một mục DT_REL */
+#define DT_PLTREL       20      /* Kiểu relocation được dùng cho PLT (DT_REL hoặc DT_RELA) */
+#define DT_DEBUG        21      /* Dành riêng cho trình gỡ lỗi (debugger) */
+#define DT_TEXTREL      22      /* Báo hiệu có relocation tác động lên phân vùng read-only (.text) */
+#define DT_JMPREL       23      /* Địa chỉ của các mục relocation riêng cho PLT (.rel.plt / .rela.plt) */
+#define DT_BIND_NOW     24      /* Yêu cầu linker xử lý toàn bộ relocation ngay lập tức trước khi chạy */
+#define DT_INIT_ARRAY   25      /* Mảng con trỏ tới các hàm init */
+#define DT_FINI_ARRAY   26      /* Mảng con trỏ tới các hàm kết thúc */
+#define DT_INIT_ARRAYSZ 27      /* Kích thước của DT_INIT_ARRAY */
+#define DT_FINI_ARRAYSZ 28      /* Kích thước của DT_FINI_ARRAY */
+#define DT_RUNPATH      29      /* Offset chuỗi đường dẫn tìm kiếm thư viện (ghi đè LD_LIBRARY_PATH) */
+#define DT_FLAGS        30      /* Các cờ điều khiển (DF_ORIGIN, DF_BIND_NOW,...) */
+#define DT_GNU_HASH     0x6ffffef5 /* Địa chỉ của bảng băm chuẩn GNU (.gnu.hash) */
+```
