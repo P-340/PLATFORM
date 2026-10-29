@@ -869,3 +869,381 @@ Các giá trị d_tag thông dụng (Constants Define):
 #define DT_FLAGS        30      /* Các cờ điều khiển (DF_ORIGIN, DF_BIND_NOW,...) */
 #define DT_GNU_HASH     0x6ffffef5 /* Địa chỉ của bảng băm chuẩn GNU (.gnu.hash) */
 ```
+
+## Relocation ##
+
+Tái định vị là quá trình liên kết các tham chiếu ký hiệu (symbolic references) với các định nghĩa ký hiệu (symbolic definitions). Các tệp tái định vị (relocatable files) bắt buộc phải chứa thông tin mô tả cách sửa đổi nội dung section của chúng, từ đó cho phép các tệp thực thi (executable) và tệp đối tượng dùng chung (shared object) lưu trữ đúng thông tin cho không gian bộ nhớ (process image) của tiến trình. Các mục tái định vị (relocation entries) chính là những dữ liệu này.
+
+Cấu trúc Rel 32-bit:
+Cấu trúc Rel 32-bit:
+
+```C
+typedef struct
+{
+  Elf32_Addr	r_offset;		/* Địa chỉ */
+  Elf32_Word	r_info;			/* Loại tái định vị và chỉ số symbol */
+} Elf32_Rel;
+```
+Cấu trúc Rel 64-bit:
+
+```C
+typedef struct
+{
+  Elf64_Addr	r_offset;		/* Địa chỉ */
+  Elf64_Xword	r_info;			/* Loại tái định vị và chỉ số symbol */
+} Elf64_Rel;
+```
+Cấu trúc Rela 32-bit:
+
+```C
+typedef struct
+{
+  Elf32_Addr	r_offset;		/* Địa chỉ */
+  Elf32_Word	r_info;			/* Loại tái định vị và chỉ số symbol */
+  Elf32_Sword	r_addend;		/* Giá trị cộng thêm (Addend) */
+} Elf32_Rela;
+```
+Cấu trúc Rela 64-bit:
+
+```C
+typedef struct
+{
+  Elf64_Addr	r_offset;		/* Địa chỉ */
+  Elf64_Xword	r_info;			/* Loại tái định vị và chỉ số symbol */
+  Elf64_Sxword	r_addend;		/* Giá trị cộng thêm (Addend) */
+} Elf64_Rela;
+```
+
+Các giá trị trường:
+
+    r_offset: Trỏ tới vị trí cần thực hiện hành động tái định vị.
+
+        Đối với các tệp nhị phân kiểu ET_REL, giá trị này thể hiện một khoảng lệch (offset) bên trong một section header mà tại đó việc tái định vị phải diễn ra.
+		
+        Đối với các tệp nhị phân kiểu ET_EXEC, giá trị này thể hiện một địa chỉ ảo bị tác động bởi quá trình tái định vị.
+
+    r_info: Cung cấp cả chỉ số trong bảng symbol (symbol table index) mà việc tái định vị cần đối chiếu, lẫn loại tái định vị cần áp dụng.
+	
+    r_addend: Xác định một hằng số cộng thêm được dùng để tính toán giá trị lưu trữ trong trường tái định vị.
+
+Các loại tái định vị x86 (x86 Relocation types):
+<img width="618" height="720" alt="image" src="https://github.com/user-attachments/assets/daf4083d-3007-4a86-8473-faccb0f6d7ae" />
+
+Các loại tái định vị x86_64 (x86_64 Relocation types):
+<img width="574" height="773" alt="image" src="https://github.com/user-attachments/assets/524c8ed4-7c40-4586-954b-f103ab2c6663" />
+
+Các ký hiệu giá trị tính toán:
+
+    A: Giá trị cộng thêm (addend) được dùng để tính toán giá trị của trường tái định vị.
+
+    B: Địa chỉ cơ sở (base address) mà tại đó một shared object được nạp vào bộ nhớ trong quá trình thực thi. Thông thường, một tệp shared object được biên dịch với địa chỉ ảo cơ sở là 0, nhưng địa chỉ thực thi thực tế sẽ khác.
+
+    G: Khoảng lệch (offset) trong bảng GOT (Global Offset Table) nơi địa chỉ của symbol thuộc mục tái định vị sẽ cư trú trong quá trình thực thi.
+
+    GOT: Địa chỉ của bảng GOT (Global Offset Table).
+
+    L: Vị trí (khoảng lệch section hoặc địa chỉ) của mục PLT (Procedure Linkage Table) dành cho một symbol. Một mục trong bảng PLT sẽ chuyển hướng một lời gọi hàm tới đúng đích đến của nó. Trình biên tập liên kết (link editor) sẽ dựng  bảng PLT ban đầu, và dynamic linker sẽ sửa đổi các mục này trong quá trình thực thi.
+
+    P: Vị trí (khoảng lệch section hoặc địa chỉ) của đơn vị lưu trữ đang được tái định vị (được tính bằng cách sử dụng r_offset).
+
+    S: Giá trị của symbol có chỉ số nằm trong mục tái định vị.
+
+Các hậu tố tái định vị chung (Generic relocation suffixes):
+
+    _NONE: Mục bị bỏ qua, không xử lý.
+
+    _64: Giá trị tái định vị kích thước qword (64-bit / 8 bytes).
+
+    _32: Giá trị tái định vị kích thước dword (32-bit / 4 bytes).
+
+    _16: Giá trị tái định vị kích thước word (16-bit / 2 bytes).
+
+    _8: Giá trị tái định vị kích thước byte (8-bit / 1 byte).
+
+    _PC: Tương đối so với con trỏ lệnh (Program Counter).
+
+    _GOT: Tương đối so với bảng GOT.
+
+    _PLT: Tương đối so với bảng PLT (Procedure Linkage Table).
+
+    _COPY: Giá trị được sao chép trực tiếp từ shared object tại thời điểm nạp (load-time).
+
+    _GLOB_DAT: Dành cho biến toàn cục (global variable).
+
+    _JMP_SLOT: Dành cho mục PLT (PLT entry).
+
+    _RELATIVE: Tương đối so với địa chỉ gốc (image base) của tiến trình chương trình.
+
+    _GOTOFF: Địa chỉ tuyệt đối bên trong bảng GOT.
+
+    _GOTPC: Khoảng lệch GOT tương đối so với con trỏ lệnh (Program Counter).
+
+<img width="877" height="731" alt="image" src="https://github.com/user-attachments/assets/2a1ab061-56e2-4cb0-9ec8-6cd1957df750" />
+
+
+Các Section:
+
+    .rel.bss: Chứa tất cả các mục tái định vị kiểu R_386_COPY.
+
+    .rel.plt: Chứa tất cả các mục tái định vị kiểu R_386_JMP_SLOT; những mục này sửa đổi nửa đầu của các phần tử trong GOT.
+
+    .rel.got: Chứa tất cả các mục tái định vị kiểu R_386_GLOB_DAT; những mục này sửa đổi nửa sau của các phần tử trong GOT.
+
+    .rel.data: Chứa tất cả các mục tái định vị kiểu R_386_32 và R_386_RELATIVE.
+
+    .rela.dyn: Chứa các mục tái định vị động dành cho các biến.
+
+    .rela.plt: Chứa các mục tái định vị động dành cho các hàm.
+
+## Stripped binaries ##
+Stripped binary là những tệp thực thi nhị phân đã bị loại bỏ bảng symbol (ký hiệu).
+Nhìn chung, loader không cần đến các symbol để có thể nạp một file thực thi ELF, ngoại trừ các symbol phục vụ cho quá trình liên kết động (dynamic linking symbols).
+Các symbol thường được dùng cho mục đích gỡ lỗi (debugging), đồng thời chúng giúp công việc dịch ngược (reverse engineering) dễ dàng hơn vì cung cấp tên hàm cùng rất nhiều thông tin về cấu trúc của tệp ELF.
+Tuy nhiên, do các dynamic symbol vẫn còn tồn tại, bạn vẫn có thể xem được các hàm được import từ các thư viện bên ngoài như glibc.
+
+## Sự khác biệt giữa đối tượng ELF 32-bit và 64-bit ##
+
+Các điểm khác biệt chính gồm:
+
+Trong ELF header, trường e_machine sẽ thay đổi.
+
+Kích thước của các giá trị xuyên suốt file ELF cũng thay đổi theo (chuyển từ 32-bit sang 64-bit).
+
+## Sections VS Segments ##
+
+Mỗi segment được chia thành các section, mỗi section lại đảm nhận một vai trò cụ thể cho tệp ELF.
+Bản thân các section không hữu ích trong thời gian chạy (runtime), do đó chúng chỉ thực sự có ý nghĩa tại thời điểm liên kết (link time).
+Các segment được dùng để tạo ra một khối bộ nhớ với các quyền truy cập cụ thể (permissions) nhằm chứa một số nội dung nhất định tại đó.
+Khác với nhiều định dạng tệp khác, tệp ELF được cấu thành từ cả section và segment. Như đã đề cập trước đó, các section gom lại mọi thông tin cần thiết để liên kết một tệp object nhất định và tạo ra tệp thực thi; trong khi đó, Program Header sẽ chia tệp thực thi thành các segment với những thuộc tính khác nhau, và các segment này cuối cùng sẽ được nạp trực tiếp vào bộ nhớ.
+Để hiểu rõ mối quan hệ giữa Section và Segment, chúng ta có thể hình dung segment như một công cụ giúp công việc của Linux loader trở nên dễ dàng hơn: loader gom các section có cùng thuộc tính vào chung một segment duy nhất nhằm giúp quá trình nạp tệp thực thi vào bộ nhớ diễn ra hiệu quả hơn, thay vì phải nạp từng section riêng lẻ. Biểu đồ dưới đây minh họa cho khái niệm này:
+
+<img width="612" height="628" alt="image" src="https://github.com/user-attachments/assets/342576a3-54ea-4514-afe3-c4e44c537eae" />
+
+## So sánh tệp ELF trong bộ nhớ (In-memory) và tệp ELF trên đĩa (On-disk) ##
+
+Tệp ELF trên đĩa thực chất chỉ là một định dạng quy định cách nạp chương trình vào bộ nhớ sao cho hoạt động chính xác.
+
+Trên đĩa, nó chứa một số thông tin không thực sự cần thiết lúc chạy như .symtab, .strtab — những mục này không được dùng trong thời gian chạy (runtime) mà chỉ tồn tại phục vụ mục đích gỡ lỗi (debugging).
+
+Kích thước trong bộ nhớ thường khác với kích thước trên đĩa. Ví dụ: khi khai báo các biến chưa khởi tạo (được lưu tại section .bss), trên đĩa chỉ cần ghi nhận kích thước của chúng mà không chiếm dung lượng thực tế. Tuy nhiên, một khi được nạp vào bộ nhớ, vùng không gian đó bắt buộc phải được lấp đầy (chẳng hạn gán bằng các số 0), do đó dung lượng bộ nhớ cần cấp phát cho ELF sẽ tăng lên.
+
+Tổng quan cơ bản:
+
+Tệp ELF trên đĩa (ELF file in disk):
+<img width="740" height="820" alt="image" src="https://github.com/user-attachments/assets/2ebb99d2-2cca-4cc0-9f34-8ef84cb2f80c" />
+
+Tệp ELF đã nạp vào bộ nhớ (ELF loaded in memory):
+<img width="400" height="599" alt="image" src="https://github.com/user-attachments/assets/e8e774d0-f69e-4a77-8c6d-acbf307b050c" />
+
+## Sự khác biệt giữa các đối tượng ELF (Differences between ELF objects) ##
+
+1. Tệp đối tượng (Object Files - ET_REL)
+
+Tệp đối tượng là các tệp có thể tái định vị (relocatable files), dùng để liên kết với các tệp đối tượng khác.
+
+Chúng cung cấp thông tin cho linker để khi liên kết với các tệp đối tượng còn lại, quá trình tái định vị (relocation) diễn ra thuận tiện và dễ dàng hơn.
+
+Nội dung của tệp đối tượng khác biệt so với các tệp ELF khác như ET_EXEC và ET_DYN.
+
+Chúng thường chứa các section như .rela.text và .rela.eh_frame.
+
+Vì chưa phải là một tệp ELF hoàn chỉnh nên các section đặc thù chưa được tạo ra; do đó, bạn sẽ chỉ thấy các section mã lệnh (code) và dữ liệu (data) thông thường cùng với các symbol.
+
+2. Tệp thực thi liên kết tĩnh (Statically-linked executable files - ET_EXEC)
+
+Tệp thực thi tĩnh là những tệp không phụ thuộc vào các thư viện bên ngoài; do đó không còn mục tái định vị nào chờ xử lý, chúng có thể tự nạp mà không cần đối tượng ngoại vi.
+
+Chúng không cần section .dynamic hay segment Dynamic, không cần GOT hay PLT vì các lời gọi hàm được thực hiện trực tiếp tới địa chỉ của hàm mà không qua bất kỳ khâu trung gian nào.
+
+Trong loại tệp ELF này, bạn sẽ thấy các section code và data thông thường cùng với các symbol (có thể bị strip/lược bỏ).
+
+Do được liên kết tĩnh, nếu chương trình sử dụng các hàm của libc thì tổng kích thước tệp sẽ rất lớn.
+
+3. Tệp thực thi liên kết động (Dynamically-linked executable files - ET_EXEC / ET_DYN)
+
+Bản chất vẫn là các tệp thực thi, nhưng vì được liên kết động nên chúng là mã độc lập vị trí PIC (Position-Independent Code / PIE).
+
+Chúng cần GOT và PLT làm thành phần trung gian để gọi các hàm bên ngoài từ các thư viện dùng chung (như printf()).
+
+Trong loại tệp thực thi này, thông thường bạn sẽ thấy các section code và data phổ biến, bảng GOT, bảng PLT, các section symbol phục vụ liên kết động như .dynsym và .dynstr (cũng như các static symbol không bắt buộc phải có).
+
+Bạn cũng sẽ bắt gặp section .dynamic (cực kỳ quan trọng đối với dynamic linking), cùng với .rela.dyn và .rela.plt.
+
+4. Thư viện dùng chung (Shared libraries - ET_DYN)
+
+Chúng được nạp vào không gian bộ nhớ của một tiến trình để cung cấp các hàm cho tệp thực thi sử dụng.
+
+Chúng tương tự như các tệp thực thi liên kết động, nhưng không hoàn toàn giống hệt.
+
+Ở đây không có segment PT_INTERP, vì shared library không được nạp trực tiếp bởi kernel mà do dynamic linker nạp.
+
+Ngoài ra, các hàm nội bộ (local functions) cũng được đưa vào .dynsym (chứ không chỉ nằm riêng ở .symtab), và symbol __libc_start_main không được import.
+
+Về mặt cấu trúc, phần còn lại gần như tương đồng với các tệp thực thi liên kết động.
+
+##Từng bước nạp ELF cho từng loại đối tượng, ASLR và PIC/PIE
+
+1. Các tệp có thể tái định vị (Relocatable files - ET_REL)
+Chúng không được thiết kế để nạp trực tiếp vào bộ nhớ để chạy, vì còn nhiều mục tái định vị (relocations) đang chờ xử lý trước khi có thể tạo ra một tệp thực thi hoàn chỉnh.
+
+2. Các tệp thực thi liên kết tĩnh (Statically-linked executable files)
+Đầu tiên, khi chúng ta thực thi một chương trình, kernel sẽ thiết lập một tiến trình mới và cấp phát cho nó một không gian bộ nhớ ảo (virtual memory space), một vùng ngăn xếp (stack), v.v.
+Vùng stack của không gian địa chỉ tiến trình đó được thiết lập theo một cấu trúc rất đặc thù để truyền thông tin cho dynamic linker. Cách bố trí và thiết lập thông tin đặc thù này được gọi là Auxiliary Vector (hay auxv - vectơ phụ trợ).
+<img width="122" height="130" alt="image" src="https://github.com/user-attachments/assets/5ff6b7dd-d527-4ed9-bd69-4f467de19e8f" />
+
+Cấu trúc dữ liệu:
+```c
+typedef struct
+{
+    uint64_t a_type;
+    union
+    {
+        uint64_t a_val;
+    } a_un;
+} Elf64_auxv_t;
+```
+Auxv type:
+
+```c
+/* Các giá trị hợp lệ cho a_type (loại mục). */
+#define AT_NULL         0               /* Đánh dấu kết thúc vectơ */
+#define AT_IGNORE       1               /* Mục cần được bỏ qua */
+#define AT_EXECFD       2               /* File descriptor của chương trình */
+#define AT_PHDR         3               /* Vị trí Program headers của chương trình */
+#define AT_PHENT        4               /* Kích thước một mục program header */
+#define AT_PHNUM        5               /* Số lượng program header */
+#define AT_PAGESZ       6               /* Kích thước trang bộ nhớ hệ thống */
+#define AT_BASE         7               /* Địa chỉ cơ sở của interpreter */
+#define AT_FLAGS        8               /* Các cờ */
+#define AT_ENTRY        9               /* Điểm nhập (Entry point) của chương trình */
+#define AT_NOTELF       10              /* Chương trình không phải định dạng ELF */
+#define AT_UID          11              /* UID thực (Real uid) */
+#define AT_EUID         12              /* UID hiệu dụng (Effective uid) */
+#define AT_GID          13              /* GID thực (Real gid) */
+#define AT_EGID         14              /* GID hiệu dụng (Effective gid) */
+#define AT_CLKTCK       17              /* Tần số của hàm times() */
+/* Con trỏ tới trang hệ thống toàn cục dùng cho system calls và các tác vụ hỗ trợ khác. */
+#define AT_SYSINFO      32
+#define AT_SYSINFO_EHDR 33
+```
+Auxiliary vector là một cấu trúc dữ liệu đặc biệt dùng để truyền thông tin trực tiếp từ kernel tới chương trình vừa mới chạy. Nó chứa các thông tin đặc thù của hệ thống mà chương trình có thể cần đến, chẳng hạn như kích thước trang bộ nhớ ảo mặc định trên hệ thống hoặc các tính năng phần cứng (tức các tính năng cụ thể của phần cứng bên dưới mà kernel phát hiện được để các chương trình ở tầng userspace có thể tận dụng).
+
+Sau đó, hệ điều hành sẽ ánh xạ một trình thông dịch (interpreter) vào bộ nhớ ảo của tiến trình (thường là ld-linux.so). Kế tiếp, nó đọc mã lệnh của interpreter và bắt đầu thực thi từ điểm nhập (entry point) của interpreter đó. Đường dẫn của interpreter có thể được trích xuất từ section .interp trong tệp ELF.
+Trình thông dịch sẽ nạp tệp nhị phân và trao quyền điều khiển cho điểm nhập (entry point) của tệp nhị phân đó.
+
+Tóm tắt:
+
+    Kernel ánh xạ chương trình vào bộ nhớ (cùng với vDSO);
+
+    Kernel thiết lập ngăn xếp (stack) và các thanh ghi (truyền thông tin như đối số dòng lệnh và biến môi trường) rồi gọi điểm nhập chính của chương trình.
+ 
+    Tệp thực thi được nạp tại một địa chỉ cố định và không cần bất kỳ bước tái định vị (relocation) nào.
+
+## Dynamically-linked executable files ##
+
+Đầu tiên, khi chúng ta thực thi một tệp nhị phân, kernel sẽ thiết lập một tiến trình mới, cấp phát không gian bộ nhớ ảo (virtual memory space), ngăn xếp (stack), v.v.
+Ngăn xếp cho không gian địa chỉ của tiến trình đó được bố trí theo một cách rất đặc biệt nhằm truyền thông tin cho dynamic linker. Cách bố trí và thiết lập thông tin đặc thù này được gọi là Auxiliary Vector (hay auxv - vectơ phụ trợ).
+
+
+<img width="122" height="130" alt="image" src="https://github.com/user-attachments/assets/d7d0ed13-4364-4a3f-825e-08758c671b17" />
+<img width="721" height="517" alt="image" src="https://github.com/user-attachments/assets/9a5ca034-5365-4a4d-85ba-5613d4185056" />
+
+Minh họa mẫu (Sample view):
+
+
+<img width="394" height="445" alt="image" src="https://github.com/user-attachments/assets/f8c22f69-ff11-4587-89c4-f02ccfb0d45b" />
+
+Cấu trúc dữ liệu:
+```c
+typedef struct
+{
+    uint64_t a_type;
+    union
+    {
+        uint64_t a_val;
+    } a_un;
+} Elf64_auxv_t;
+```
+Auxv type:
+```c
+/* Các giá trị hợp lệ cho a_type (loại mục). */
+#define AT_NULL         0               /* Đánh dấu kết thúc vector */
+#define AT_IGNORE       1               /* Mục cần được bỏ qua */
+#define AT_EXECFD       2               /* File descriptor của chương trình */
+#define AT_PHDR         3               /* Vị trí Program headers của chương trình */
+#define AT_PHENT        4               /* Kích thước một mục program header */
+#define AT_PHNUM        5               /* Số lượng program header */
+#define AT_PAGESZ       6               /* Kích thước trang bộ nhớ hệ thống */
+#define AT_BASE         7               /* Địa chỉ cơ sở của interpreter */
+#define AT_FLAGS        8               /* Các cờ */
+#define AT_ENTRY        9               /* Điểm nhập (Entry point) của chương trình */
+#define AT_NOTELF       10              /* Chương trình không phải định dạng ELF */
+#define AT_UID          11              /* UID thực (Real uid) */
+#define AT_EUID         12              /* UID hiệu dụng (Effective uid) */
+#define AT_GID          13              /* GID thực (Real gid) */
+#define AT_EGID         14              /* GID hiệu dụng (Effective gid) */
+#define AT_CLKTCK       17              /* Tần số của hàm times() */
+/* Con trỏ tới trang hệ thống toàn cục dùng cho system calls và các tác vụ hỗ trợ khác. */
+#define AT_SYSINFO      32
+#define AT_SYSINFO_EHDR 33
+```
+Auxiliary vector là một cấu trúc dữ liệu đặc biệt dùng để truyền thông tin trực tiếp từ kernel tới chương trình mới khởi chạy. Nó chứa các thông tin đặc thù của hệ thống mà chương trình có thể cần đến, chẳng hạn như kích thước mặc định của một trang bộ nhớ ảo trên hệ thống hoặc các năng lực phần cứng (hardware capabilities — tức các tính năng cụ thể của phần cứng bên dưới mà kernel nhận diện được để các chương trình ở tầng userspace có thể tận dụng).
+
+Sau khi mã chương trình đã được nạp vào bộ nhớ như đã mô tả trước đó, trình xử lý ELF (ELF handler) cũng sẽ nạp chương trình thông dịch ELF (ELF interpreter) vào bộ nhớ bằng hàm load_elf_interp(). Quá trình này tương tự như quá trình nạp chương trình gốc: mã kiểm tra thông tin định dạng trong ELF header, đọc ELF program header, ánh xạ toàn bộ các segment kiểu PT_LOAD từ file vào bộ nhớ của chương trình mới, và chừa chỗ cho segment BSS của interpreter. Đường dẫn của interpreter có thể được lấy từ section .interp trong tệp ELF.
+
+Địa chỉ bắt đầu thực thi của chương trình cũng được trỏ tới điểm nhập (entry point) của interpreter, thay vì entry point của chính chương trình đó. Khi system call execve() hoàn tất, quá trình thực thi bắt đầu với ELF interpreter. Trình thông dịch này đảm nhận việc đáp ứng các yêu cầu liên kết của chương trình từ userspace — bao gồm việc tìm và nạp các thư viện dùng chung mà chương trình phụ thuộc vào, sau đó phân giải các symbol chưa được định nghĩa của chương trình khớp với định nghĩa chính xác trong các thư viện đó. Sau khi quá trình liên kết này hoàn tất (quá trình này đòi hỏi sự am hiểu sâu về định dạng ELF hơn nhiều so với những gì kernel nắm giữ), interpreter có thể bắt đầu cho chạy chính chương trình mới tại địa chỉ đã được ghi lại trước đó trong giá trị phụ trợ AT_ENTRY.
+
+Chúng ta đã đề cập trước đó rằng các system call vốn chậm chạp, và các hệ thống hiện đại đều có cơ chế tránh chi phí phụ trội (overhead) do việc tạo ngắt phần mềm (trap) tới bộ xử lý.
+Trên Linux, điều này được triển khai bằng một kỹ thuật phối hợp khéo léo giữa dynamic loader và kernel, tất cả đều được giao tiếp thông qua cấu trúc AUXV. Kernel thực chất chèn một thư viện dùng chung nhỏ vào không gian địa chỉ của mỗi tiến trình mới được tạo, trong đó chứa một hàm thực hiện gọi system call thay cho bạn. Điểm tối ưu của hệ thống này là nếu phần cứng bên dưới hỗ trợ cơ chế system call nhanh, kernel (với tư cách là người tạo ra thư viện) có thể sử dụng cơ chế đó; nếu không, nó sẽ quay về phương án cũ là tạo trap. Thư viện này có tên là linux-gate.so.1, được gọi như vậy vì nó đóng vai trò như cánh cổng dẫn vào các cơ chế nội bộ của kernel.
+
+Khi kernel khởi động dynamic linker, nó bổ sung một mục vào auxv gọi là AT_SYSINFO_EHDR — đây chính là địa chỉ bộ nhớ nơi thư viện đặc biệt này của kernel cư trú. Khi dynamic linker khởi chạy, nó có thể tìm con trỏ AT_SYSINFO_EHDR, và nếu tìm thấy, nó sẽ nạp thư viện đó cho chương trình. Bản thân chương trình hoàn toàn không biết sự tồn tại của thư viện này; đây là một thỏa thuận nội bộ riêng giữa dynamic linker và kernel.
+
+Interpreter nạp tệp nhị phân, sau đó phân tích cú pháp để tìm xem tệp nhị phân cần các thư viện nào, ánh xạ chúng bằng mmap hoặc các phương thức tương tự, rồi thực hiện mọi việc tái định vị cần thiết vào phút chót trong các code section của tệp nhị phân để điền địa chỉ chính xác cho các tham chiếu tới các dynamic library.
+Dynamic linker sau đó sẽ nhảy tới địa chỉ điểm nhập (entry point) như được chỉ định trong tệp nhị phân ELF.
+
+Entry point chính là hàm _start trong tệp nhị phân. Tại điểm này, khi disassemble chúng ta có thể thấy một số giá trị được đẩy lên stack. Giá trị đầu tiên là địa chỉ của hàm __libc_csu_fini, giá trị tiếp theo là địa chỉ của __libc_csu_init, và cuối cùng là địa chỉ của hàm main(). Sau đó, hàm __libc_start_main được gọi.
+Ở giai đoạn này, hàm __libc_start_main sẽ nhận khá nhiều tham số đầu vào trên stack. Đầu tiên, nó có quyền truy cập vào các đối số của chương trình (arguments), biến môi trường (environment variables) và auxiliary vector từ kernel. Sau đó, hàm khởi tạo sẽ đẩy lên stack địa chỉ của các hàm xử lý init, fini, và cuối cùng là chính địa chỉ của hàm main().
+
+Giá trị cuối cùng được đẩy lên stack cho __libc_start_main là hàm khởi tạo __libc_csu_init. Nếu lần theo chuỗi gọi hàm từ __libc_csu_init, chúng ta thấy nó thực hiện một số bước thiết lập rồi gọi hàm _init trong tệp thực thi. Cuối cùng, hàm _init sẽ gọi một số hàm như __do_global_ctors_aux, frame_dummy và call_gmon_start.
+Sau khi __libc_start_main hoàn tất lời gọi _init, cuối cùng nó mới gọi hàm main(). Hãy nhớ rằng ngăn xếp ban đầu đã được thiết lập với các đối số và con trỏ biến môi trường từ kernel; đây là cách mà main nhận được các đối số argc, argv[], envp[]. Tiến trình giờ đây bắt đầu chạy bình thường và giai đoạn thiết lập đã hoàn tất.
+Cuối cùng, chương trình gọi các hàm kết thúc và gọi exit() cùng giá trị trả về từ main().
+
+Công việc tiếp theo của linker sẽ là phân giải thông qua lazy binding tất cả các hàm thư viện khi chúng được gọi tới. Bằng việc sử dụng các symbol của thư viện cùng các dynamic symbol từ tệp thực thi, kết hợp với các mục relocation cho GOT, quá trình liên kết động sẽ được thực hiện thành công.
+
+Tóm tắt:
+
+    Định vị và ánh xạ tất cả các thư viện phụ thuộc (cũng như các shared object được chỉ định trong LD_PRELOAD);
+
+    Tái định vị các tệp (relocate the files).
+ 
+    Đây là góc nhìn tổng quan ở mức rất cao:
+
+    Kernel khởi tạo tiến trình:
+
+    Ánh xạ chương trình chính, các segment của interpreter (dynamic linker) và vDSO vào không gian địa chỉ ảo;
+
+    Thiết lập ngăn xếp (truyền các đối số, biến môi trường) và gọi điểm nhập của dynamic linker;
+
+    Dynamic linker nạp các đối tượng ELF khác nhau và liên kết (bind) chúng lại với nhau:
+
+    Tự tái định vị chính nó (!);
+
+    Tìm và nạp các thư viện cần thiết;
+
+    Thực hiện các phép tái định vị (để liên kết các đối tượng ELF);
+
+    Gọi các hàm khởi tạo của các shared object;
+
+    Các hàm đó được chỉ định trong các mục DT_INIT và DT_INIT_ARRAY của các đối tượng ELF.
+
+    Gọi điểm nhập của chương trình chính;
+
+    Điểm nhập của chương trình chính được tìm thấy trong mục AT_ENTRY của auxiliary vector: nó đã được kernel khởi tạo từ trường e_entry trong ELF header.
+
+    Tệp thực thi sau đó tự khởi tạo chính nó.
+
+    Thư viện dùng chung (Shared libraries)
+
+    Như đã giải thích trước đó, chúng được nạp vào không gian bộ nhớ của tiến trình, và linker sẽ đảm nhận công việc liên kết động.
+
+## Common objects and functions ##
